@@ -1,0 +1,4 @@
+comport=/dev/ttyACM2
+ATE1
+AT*E2GPSCTL=1,1,1
+AT*E2GPSNPD

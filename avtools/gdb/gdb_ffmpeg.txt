@@ -1,0 +1,48 @@
+gdb --args ffmpeg -f v4l2 -s 320x240 -r 10 -i /dev/video0 -f alsa -ac 1 -i sysdefault:CARD=Device -vcodec libx264 -preset ultrafast -tune zerolatency -r 2 -async 1 -acodec libmp3lame -ab 24k -ar 22050 -bsf:v h264_mp4toannexb -maxrate 750k -bufsize 3000k -f mpegts udp://192.168.2.133:1234
+
+
+set $cnt_av_interleaved_write_frame = 0
+set $cnt_av_write_frame = 0
+set $cnt_stream0 = 0
+set $cnt_stream1 = 0
+set $cnt_total_stream = 0
+set $size_stream0 = 0
+set $total_size_stream0 = 0
+set $size_stream1 = 0
+set $total_size_stream1 = 0
+define do_count_avpacket
+	set $avpacket = (AVPacket *)$arg0
+	if $avpacket->stream_index == 0
+		set $cnt_stream0 = $cnt_stream0 + 1
+		set $size_stream0 = $avpacket->size
+		set $total_size_stream0 = $total_size_stream0 + $avpacket->size
+	end
+	if $avpacket->stream_index == 1
+		set $cnt_stream1 = $cnt_stream1 + 1
+		set $size_stream1 = $avpacket->size
+		set $total_size_stream1 = $total_size_stream1 + $avpacket->size
+	end
+	set $cnt_total_stream = $cnt_total_stream + 1
+	if $cnt_total_stream % 100 == 0
+		printf "[steam0: %d, size:%d, total:%d]\n", $cnt_stream0, $size_stream0, $total_size_stream0
+		printf "[steam1: %d, size:%d, total:%d]\n", $cnt_stream1, $size_stream1, $total_size_stream1
+		printf "[av_interleaved_write_frame: %d, av_write_frame:%d]\n", $cnt_av_interleaved_write_frame, $cnt_av_write_frame 
+	end
+end
+
+b av_interleaved_write_frame
+commands
+silent
+set $cnt_av_interleaved_write_frame = $cnt_av_interleaved_write_frame + 1
+do_count_avpacket pkt
+cont
+end
+
+b av_write_frame
+commands
+set $cnt_av_write_frame = $cnt_av_write_frame + 1
+do_count_avpacket pkt
+cont
+end
+
+
